@@ -57,8 +57,26 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
-	return 0;
+    // Your code here.
+    uint32_t ebp = read_ebp();
+    struct Eipdebuginfo info;
+    cprintf("Stack backtraces:\n");
+    /* ebp's initial value is set to 0 in kern/entry.S */
+    while (ebp != 0) {
+        /* eip and arguments' addresses can be inferred from ebp */
+        cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n", 
+                ebp, *(uint32_t *)(ebp + 4), *(uint32_t *)(ebp + 8), *(uint32_t *)(ebp + 12),
+                *(uint32_t *)(ebp + 16), *(uint32_t *)(ebp + 20), *(uint32_t *)(ebp + 24));
+        /* look up eip in the symbol table and obtain more debugging info */
+        if (debuginfo_eip(*(uint32_t *)(ebp + 4), &info) == 0) {
+            cprintf("         %s:%d: %.*s+%d\n",
+                    info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name,
+                    *(uint32_t *)(ebp + 4) - info.eip_fn_addr);
+        }
+        /* obtain caller's ebp  */
+        ebp = *(uint32_t *)ebp;
+    }
+    return 0;
 }
 
 
@@ -115,6 +133,8 @@ monitor(struct Trapframe *tf)
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
 
+	int x = 1, y = 3, z = 4;
+	cprintf("x %d, y %x, z %d\n", x, y, z);
 
 	while (1) {
 		buf = readline("K> ");
